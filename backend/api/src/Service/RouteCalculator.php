@@ -2,6 +2,9 @@
 
 namespace App\Service;
 
+use App\Exception\UnknownStationException;
+use App\Exception\NoRouteFoundException;
+
 class RouteCalculator
 {
     public function __construct(
@@ -12,14 +15,16 @@ class RouteCalculator
     /**
      * Calcule le plus court chemin entre 2 stations (par leurs codes : MX, ZW, ...).
      *
-     * Retourne un tableau avec :
-     *  - distanceKm (float)
-     *  - path (array<string>)
+     * @throws UnknownStationException
+     * @throws NoRouteFoundException
      */
     public function calculate(string $fromStationId, string $toStationId): array
     {
         // 1. Cas trivial : départ = arrivée
         if ($fromStationId === $toStationId) {
+            if (!$this->network->hasStation($fromStationId)) {
+                throw new UnknownStationException($fromStationId);
+            }
             return [
                 'distanceKm' => 0.0,
                 'path'       => [$fromStationId],
@@ -27,15 +32,12 @@ class RouteCalculator
         }
 
         // 2. Validation de base : les stations doivent exister
-        if (
-            !$this->network->hasStation($fromStationId)
-            || !$this->network->hasStation($toStationId)
-        ) {
-            // Plus tard : lever une exception et mapper ça en 422
-            return [
-                'distanceKm' => 0.0,
-                'path'       => [],
-            ];
+        if (!$this->network->hasStation($fromStationId)) {
+            throw new UnknownStationException($fromStationId);
+        }
+
+        if (!$this->network->hasStation($toStationId)) {
+            throw new UnknownStationException($toStationId);
         }
 
         // 3. Dijkstra "simple" sur l'ensemble du réseau
@@ -102,12 +104,7 @@ class RouteCalculator
 
         // 4. Vérifier si on a trouvé un chemin vers la destination
         if (!isset($dist[$toStationId]) || $dist[$toStationId] === INF) {
-            // Aucun chemin trouvé (réseau non connexe ?)
-            // Plus tard : transformer ça en 422
-            return [
-                'distanceKm' => 0.0,
-                'path'       => [],
-            ];
+           throw new NoRouteFoundException($fromStationId, $toStationId);
         }
 
         // 5. Reconstruire le chemin en remontant depuis la destination
