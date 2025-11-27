@@ -10,7 +10,7 @@ class RouteCalculator
     }
 
     /**
-     * Calcule (pour l'instant de façon simplifiée) un trajet entre 2 stations.
+     * Calcule le plus court chemin entre 2 stations (par leurs codes : MX, ZW, ...).
      *
      * Retourne un tableau avec :
      *  - distanceKm (float)
@@ -18,25 +18,111 @@ class RouteCalculator
      */
     public function calculate(string $fromStationId, string $toStationId): array
     {
-        // TODO: plus tard -> implémenter un vrai algorithme de plus court chemin
+        // 1. Cas trivial : départ = arrivée
+        if ($fromStationId === $toStationId) {
+            return [
+                'distanceKm' => 0.0,
+                'path'       => [$fromStationId],
+            ];
+        }
 
-        // Pour l'instant, on renvoie juste un "stub" qui respecte la forme
-        // en disant "le chemin est direct" si les 2 stations existent.
-
-        if (!$this->network->hasStation($fromStationId) || !$this->network->hasStation($toStationId)) {
-            // on pourrait ici lever une exception custom qu'on mappera en 422
-            // pour l'instant, on renvoie un résultat minimal
+        // 2. Validation de base : les stations doivent exister
+        if (
+            !$this->network->hasStation($fromStationId)
+            || !$this->network->hasStation($toStationId)
+        ) {
+            // Plus tard : lever une exception et mapper ça en 422
             return [
                 'distanceKm' => 0.0,
                 'path'       => [],
             ];
         }
 
-        // Stub : distance fictive + chemin direct
-        // (ce sera remplacé par le vrai calcul)
+        // 3. Dijkstra "simple" sur l'ensemble du réseau
+
+        $stationCodes = $this->network->getStationByCode(); // MX, ZW, etc.
+
+        // Distance minimale connue depuis la source
+        $dist = [];
+        // Station précédente dans le plus court chemin
+        $prev = [];
+        // Ensemble des stations non encore "fixées"
+        $unvisited = [];
+
+        foreach ($stationCodes as $code) {
+            $dist[$code] = INF;
+            $prev[$code] = null;
+            $unvisited[$code] = true;
+        }
+
+        $dist[$fromStationId] = 0.0;
+
+        while (!empty($unvisited)) {
+            // 3.a : trouver la station non visitée avec la plus petite distance
+            $current = null;
+            $currentDist = INF;
+
+            foreach ($unvisited as $code => $_) {
+                if ($dist[$code] < $currentDist) {
+                    $currentDist = $dist[$code];
+                    $current = $code;
+                }
+            }
+
+            // Si on n'a plus de station atteignable, on arrête
+            if ($current === null || $currentDist === INF) {
+                break;
+            }
+
+            // Si on est arrivé à la destination, on peut stopper l'algorithme
+            if ($current === $toStationId) {
+                break;
+            }
+
+            // On marque la station comme visitée
+            unset($unvisited[$current]);
+
+            // 3.b : on met à jour les distances pour les voisins
+            $neighbors = $this->network->getNeighbors($current);
+
+            foreach ($neighbors as $neighborCode => $distanceKm) {
+                // Si le voisin est déjà "fixé", on le saute
+                if (!isset($unvisited[$neighborCode])) {
+                    continue;
+                }
+
+                $alt = $dist[$current] + $distanceKm;
+
+                if ($alt < $dist[$neighborCode]) {
+                    $dist[$neighborCode] = $alt;
+                    $prev[$neighborCode] = $current;
+                }
+            }
+        }
+
+        // 4. Vérifier si on a trouvé un chemin vers la destination
+        if (!isset($dist[$toStationId]) || $dist[$toStationId] === INF) {
+            // Aucun chemin trouvé (réseau non connexe ?)
+            // Plus tard : transformer ça en 422
+            return [
+                'distanceKm' => 0.0,
+                'path'       => [],
+            ];
+        }
+
+        // 5. Reconstruire le chemin en remontant depuis la destination
+        $path = [];
+        $current = $toStationId;
+
+        while ($current !== null) {
+            array_unshift($path, $current);
+            $current = $prev[$current] ?? null;
+        }
+
+        // 6. Retourner le résultat
         return [
-            'distanceKm' => 123.4,
-            'path'       => [$fromStationId, $toStationId],
+            'distanceKm' => round($dist[$toStationId], 2),
+            'path'       => $path,
         ];
     }
 }
