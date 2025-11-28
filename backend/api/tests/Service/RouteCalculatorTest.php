@@ -20,6 +20,10 @@ class RouteCalculatorTest extends TestCase
         $this->calculator = new RouteCalculator($network);
     }
 
+    /**
+     * Vérifie que le calculateur retourne bien une distance > 0
+     * et un chemin non vide entre deux stations valides (MX -> ZW).
+     */
     public function testCalculateReturnsPathAndDistanceForValidStations(): void
     {
         $result = $this->calculator->calculate('MX', 'ZW');
@@ -39,6 +43,11 @@ class RouteCalculatorTest extends TestCase
         $this->assertSame('ZW', end($result['path']));
     }
 
+
+    /**
+     * Vérifie que le calculateur lève une UnknownStationException
+     * lorsqu'on lui fournit une station de départ inconnue (XXX).
+     */
     public function testCalculateThrowsForUnknownFromStation(): void
     {
         $this->expectException(UnknownStationException::class);
@@ -46,12 +55,15 @@ class RouteCalculatorTest extends TestCase
         $this->calculator->calculate('XXX', 'ZW');
     }
 
+    /**
+     * Vérifie que le calculateur lève une NoRouteFoundException
+     * lorsque les deux stations existent mais qu'aucun chemin n'est possible
+     * dans le graphe (ex. CAUX -> MX).
+     */
     public function testCalculateThrowsWhenNoRouteExists(): void
     {
         $this->expectException(NoRouteFoundException::class);
 
-        // CAUX existe dans stations.json mais n'apparaît dans aucune distance :
-        // donc il n'y a aucun chemin vers MX -> NoRouteFoundException attendue
         $this->calculator->calculate('CAUX', 'MX');
     }
 }
