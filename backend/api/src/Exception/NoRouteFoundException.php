@@ -9,7 +9,7 @@ class NoRouteFoundException extends \RuntimeException
         private readonly string $fromStation,
         private readonly string $toStation
     ) {
-        parent::__construct(sprintf('No route found between "%s" and "%s".', $fromStation, $toStation));
+        parent::__construct(sprintf('Le réseau n\'a aucun chemin de "%s" à "%s".', $fromStation, $toStation));
     }
 
     /**

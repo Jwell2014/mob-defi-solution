@@ -8,7 +8,7 @@ class UnknownStationException extends \RuntimeException
     public function __construct(
         private readonly string $stationCode
     ) {
-        parent::__construct(sprintf('Unknown station "%s".', $stationCode));
+        parent::__construct(sprintf('La station code "%s" n\'existe pas sur le réseau.', $stationCode));
     }
 
     /**
