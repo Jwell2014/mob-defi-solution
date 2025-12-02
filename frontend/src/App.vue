@@ -184,7 +184,7 @@ const onSubmit = async () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // plus tard tu mettras ici le JWT si tu ajoutes l’auth
+        Authorization: 'Bearer dev-secret-token',
       },
       body: JSON.stringify({
         fromStationId: fromStationId.value,
