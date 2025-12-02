@@ -1,6 +1,9 @@
 <template>
   <v-app>
     <v-main>
+      <v-banner max-width="200" >
+        <v-img alt="MOB" src="../public/mob.png"/>
+      </v-banner>
       <v-container class="py-8" max-width="800">
         <v-card elevation="4" class="pa-6 mb-6">
           <v-card-title class="text-h5 text-center">
