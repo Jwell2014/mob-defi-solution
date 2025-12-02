@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: api/Dockerfile
+    container_name: mob-backend
+    environment:
+      APP_ENV: prod
+      # même valeur que dans .env
+      API_BEARER_TOKEN: dev-secret-token
+    ports:
+      - "8000:80"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: mob-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
