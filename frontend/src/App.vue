@@ -40,6 +40,7 @@
                     v-model="analyticCode"
                     label="Code analytique"
                     placeholder="ANA-123"
+                    @input="analyticCode = analyticCode.toUpperCase()"
                     required
                   />
                 </v-col>
@@ -78,6 +79,9 @@
               <p><strong>À :</strong> {{ route.toStationId }}</p>
               <p><strong>Code analytique :</strong> {{ route.analyticCode }}</p>
               <p><strong>Distance :</strong> {{ route.distanceKm }} km</p>
+              <p v-if="formattedRouteCreatedAt">
+                <strong>Date :</strong> {{ formattedRouteCreatedAt }}
+              </p>
             </div>
             <p class="mt-2" v-if="route.path.length === 0">
               <strong>Chemin :</strong>
@@ -125,6 +129,167 @@
             </div>
           </v-card-text>
         </v-card>
+
+      <v-card elevation="2" class="pa-4 mt-6">
+        <v-card-title class="text-h6">Statistiques par code analytique</v-card-title>
+        <v-card-text>
+          <v-form @submit.prevent="fetchStats">
+            <v-row dense>
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="statsGroupBy"
+                  :items="[
+                    { title: 'Aucun', value: 'none' },
+                    { title: 'Par jour', value: 'day' },
+                    { title: 'Par mois', value: 'month' },
+                    { title: 'Par année', value: 'year' }
+                  ]"
+                  label="Regrouper par"
+                />
+              </v-col>
+
+              <v-col cols="12" md="4">
+                <v-menu
+                  v-model="statsFromMenu"
+                  :close-on-content-click="false"
+                  transition="scale-transition"
+                  location="bottom"
+                >
+                  <template #activator="{ props }">
+                    <v-text-field
+                      v-bind="props"
+                      v-model="statsFrom"
+                      label="Date de début"
+                      placeholder="YYYY-MM-DD"
+                      prepend-inner-icon="mdi-calendar"
+                      readonly
+                      hide-details="auto"
+                    />
+                  </template>
+
+                  <v-date-picker
+                    v-model="statsFromPicker"
+                    title="Date de début"
+                    @update:model-value="val => {
+                      statsFrom = formatDateYMD(val); statsFromMenu = false;
+                    }"
+                  />
+
+                </v-menu>
+              </v-col>
+
+              <v-col cols="12" md="4">
+                <v-menu
+                  v-model="statsToMenu"
+                  :close-on-content-click="false"
+                  transition="scale-transition"
+                  location="bottom"
+                >
+                  <template #activator="{ props }">
+                    <v-text-field
+                      v-bind="props"
+                      v-model="statsTo"
+                      label="Date de fin"
+                      placeholder="YYYY-MM-DD"
+                      prepend-inner-icon="mdi-calendar"
+                      readonly
+                      hide-details="auto"
+                    />
+                  </template>
+
+                  <v-date-picker
+                    v-model="statsToPicker"
+                    title="Date de fin"
+                    @update:model-value="val => { 
+                      statsTo = formatDateYMD(val); statsToMenu = false;
+                    }"
+                  />
+
+                </v-menu>
+              </v-col>
+            </v-row>
+
+            <div class="mt-4 d-flex justify-start">
+              <v-btn
+                type="submit"
+                color="black"
+                outlined
+                :loading="statsLoading"
+              >
+                Mettre à jour les statistiques
+              </v-btn>
+            </div>
+          </v-form>
+
+          <v-alert
+            v-if="statsError"
+            type="error"
+            variant="tonal"
+            class="mt-4"
+          >
+            <div><strong>Code :</strong> {{ statsError.code }}</div>
+            <div><strong>Message :</strong> {{ statsError.message }}</div>
+            <ul v-if="statsError.details?.length">
+              <li v-for="(detail, index) in statsError.details" :key="index">
+                {{ detail }}
+              </li>
+            </ul>
+          </v-alert>
+
+          <div v-if="stats && stats.items.length" class="mt-4">
+            <p class="text-subtitle-2 mb-2">
+              Période :
+              <span v-if="stats.from || stats.to">
+                {{ formattedStatsPeriodFrom ?? '…' }} → {{ formattedStatsPeriodTo ?? '…' }}
+              </span>
+              <span v-else>
+                Toutes les dates
+              </span>
+              — regroupement : {{ stats.groupBy }}
+            </p>
+
+            <v-table>
+              <thead>
+                <tr>
+                  <th>Code analytique</th>
+                  <th>Distance totale (km)</th>
+                  <th v-if="stats.groupBy !== 'none'">Groupe</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(item, index) in stats.items"
+                  :key="item.analyticCode + '-' + (item.group ?? index)"
+                >
+                  <td>{{ item.analyticCode }}</td>
+                  <td>{{ item.totalDistanceKm }}</td>
+                  <td v-if="stats.groupBy !== 'none'">
+                    {{ item.group }}
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </div>
+
+          <div v-if="stats && stats.items.length" class="mt-6">
+            <h3 class="text-subtitle-1 mb-2">Graphique des distances par code analytique</h3>
+            <div style="height: 300px;">
+              <Bar
+                v-if="statsChartData"
+                :data="statsChartData"
+                :options="statsChartOptions"
+              />
+            </div>
+          </div>
+
+
+          <p v-else-if="stats && !stats.items.length" class="mt-4">
+            Aucune statistique disponible pour les filtres choisis.
+          </p>
+        </v-card-text>
+      </v-card>
+
+
       </v-container>
     </v-main>
   </v-app>
@@ -132,6 +297,18 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { Bar } from "vue-chartjs";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 interface RouteResponse {
   id: string;
@@ -151,6 +328,19 @@ interface ErrorResponse {
   details?: string[];
 }
 
+interface AnalyticDistanceItem {
+  analyticCode: string;
+  totalDistanceKm: number;
+  group?: string;
+}
+
+interface AnalyticDistanceResponse {
+  from: string | null;
+  to: string | null;
+  groupBy: "none" | "day" | "month" | "year";
+  items: AnalyticDistanceItem[];
+}
+
 const fromStationId = ref("MX");
 const toStationId = ref("ZW");
 const analyticCode = ref("ANA-123");
@@ -158,6 +348,151 @@ const analyticCode = ref("ANA-123");
 const route = ref<RouteResponse | null>(null);
 const error = ref<ErrorResponse | null>(null);
 const isLoading = ref(false);
+
+const stats = ref<AnalyticDistanceResponse | null>(null);
+const statsError = ref<ErrorResponse | null>(null);
+const statsLoading = ref(false);
+
+const statsGroupBy = ref<"none" | "day" | "month" | "year">("none");
+
+const statsFrom = ref<string | null>(null); // toujours au format YYYY-MM-DD pour l'API
+const statsTo = ref<string | null>(null);
+const statsFromMenu = ref(false);
+const statsToMenu = ref(false);
+
+// valeurs internes pour le date-picker
+const statsFromPicker = ref<string | null>(null);
+const statsToPicker = ref<string | null>(null);
+
+const formatDateYMD = (value: string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  // Si déjà au bon format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+
+const formattedStatsPeriodFrom = computed(() =>
+  formatDateYMD(stats.value?.from)
+);
+const formattedStatsPeriodTo = computed(() => formatDateYMD(stats.value?.to));
+const formattedRouteCreatedAt = computed(() =>
+  formatDateYMD(route.value?.createdAt)
+);
+
+const fetchStats = async () => {
+  statsLoading.value = true;
+  stats.value = null;
+  statsError.value = null;
+
+  try {
+    const params = new URLSearchParams();
+    params.set("groupBy", statsGroupBy.value);
+
+    const fromParam = formatDateYMD(statsFrom.value);
+    const toParam = formatDateYMD(statsTo.value);
+
+    if (fromParam) {
+      params.set("from", fromParam);
+    }
+    if (toParam) {
+      params.set("to", toParam);
+    }
+
+    const response = await fetch(`/api/v1/stats/distances?${params.toString()}`, {
+      headers: {
+        Authorization: "Bearer dev-secret-token",
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      statsError.value = {
+        code: data.code ?? "UNKNOWN_ERROR",
+        message: data.message ?? "Une erreur inconnue est survenue lors de la récupération des statistiques.",
+        details: data.details ?? [],
+      };
+      return;
+    }
+
+    stats.value = data as AnalyticDistanceResponse;
+  } catch (e) {
+    statsError.value = {
+      code: "NETWORK_ERROR",
+      message: "Impossible de contacter le serveur pour les statistiques.",
+      details: [String(e)],
+    };
+  } finally {
+    statsLoading.value = false;
+  }
+};
+
+const statsChartData = computed(() => {
+  if (!stats.value || !stats.value.items.length) {
+    return null;
+  }
+
+  const labels = stats.value.items.map((item) => {
+    if (stats.value?.groupBy && stats.value.groupBy !== "none" && item.group) {
+      return `${item.analyticCode} (${item.group})`;
+    }
+    return item.analyticCode;
+  });
+
+  const data = stats.value.items.map((item) => item.totalDistanceKm);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: "Distance totale (km)",
+        data,
+      },
+    ],
+  };
+});
+
+const statsChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false,
+    },
+    title: {
+      display: false,
+    },
+  },
+  scales: {
+    x: {
+      ticks: {
+        autoSkip: true,
+        maxRotation: 45,
+        minRotation: 0,
+      },
+    },
+    y: {
+      beginAtZero: true,
+    },
+  },
+}));
+
 
 const timelineItems = computed(() => {
   if (!route.value || !route.value.path || route.value.path.length === 0) {
