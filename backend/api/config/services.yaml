@@ -6,6 +6,7 @@
 parameters:
     app.routing_data_dir: '%kernel.project_dir%/../data'
     api_bearer_token: '%env(API_BEARER_TOKEN)%'
+    route_storage_file: '%kernel.project_dir%/var/routes-log.json'
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -29,6 +30,10 @@ services:
     App\EventSubscriber\ApiAuthSubscriber:
         arguments:
             $apiBearerToken: '%api_bearer_token%'
+
+    App\Service\RouteStorage:
+        arguments:
+            $storageFile: '%route_storage_file%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

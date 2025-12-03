@@ -10,19 +10,25 @@ use App\Service\RailNetwork;
 use App\Service\RouteCalculator;
 use App\Exception\NoRouteFoundException;
 use App\Exception\UnknownStationException;
+use App\Service\RouteStorage;
 
 class RouteController extends AbstractController
 {
     #[Route('/api/v1/routes', name: 'calculate_route', methods: ['POST'])]
-    public function calculateRoute(Request $request, RailNetwork $network, RouteCalculator $calculator): JsonResponse    {
+    public function calculateRoute(
+        Request $request, 
+        RailNetwork $network,
+        RouteCalculator $calculator, 
+        RouteStorage $routeStorage): JsonResponse    
+        {
         // 1. Parsing JSON
         $data = json_decode($request->getContent(), true);
 
         if (!is_array($data)) {
             return $this->errorResponse(
                 'INVALID_REQUEST',
-                'Request body must be a valid JSON object.',
-                ['Body is not a valid JSON object.'],
+                'Le corps de la requête doit être un objet JSON valide.',
+                ['Le corps du message n\'est pas un objet JSON valide.'],
                 400
             );
         }
@@ -33,14 +39,14 @@ class RouteController extends AbstractController
 
         foreach ($requiredFields as $field) {
             if (!isset($data[$field]) || !is_string($data[$field]) || $data[$field] === '') {
-                $details[] = sprintf('Field "%s" is required and must be a non-empty string.', $field);
+                $details[] = sprintf('Le champ "%s" est obligatoire et doit être une chaîne de caractères non vide.', $field);
             }
         }
 
         if (!empty($details)) {
             return $this->errorResponse(
                 'INVALID_REQUEST',
-                'Some required fields are missing or invalid.',
+                'Certains champs obligatoires sont manquants ou invalides.',
                 $details,
                 400
             );
@@ -80,6 +86,16 @@ class RouteController extends AbstractController
         'debug_stationCount'  => count($network->getStationByCode()),
         'debug_neighborsFrom' => $network->getNeighbors($fromStationId),
         ];
+
+        // Persistance simple du trajet pour les statistiques
+        $routeStorage->append([
+            'id'            => $route['id'],
+            'fromStationId' => $route['fromStationId'],
+            'toStationId'   => $route['toStationId'],
+            'analyticCode'  => $route['analyticCode'],
+            'distanceKm'    => $route['distanceKm'],
+            'createdAt'     => $route['createdAt'],
+        ]);
 
         return new JsonResponse($route, 201);
     }

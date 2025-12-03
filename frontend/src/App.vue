@@ -2,7 +2,7 @@
   <v-app>
     <v-main>
       <v-container class="d-flex justify-center">
-        <v-img max-width="200" alt="MOB" src="../public/mob.png"/>
+        <v-img max-width="200" alt="MOB" src="/mob.png" />
       </v-container>
       <v-container class="py-8" max-width="800">
         <v-card elevation="4" class="pa-6 mb-6">
