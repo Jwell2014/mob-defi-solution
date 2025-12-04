@@ -1,82 +1,137 @@
-# 🚆 MOB – Défi Full-Stack : Routage de train & Statistiques
+#  MOB – Défi Full-Stack : Routage de train & Statistiques  
+### Symfony 7 · Vue 3 · Vuetify 3 · TypeScript · Docker · Dijkstra · Chart.js
 
-**Backend : Symfony 7 (PHP 8.4)**
-**Frontend : Vue 3 + Vuetify**
-**Docker / Typescript**
+![Made with Symfony](https://img.shields.io/badge/Symfony-7.0-000000?logo=symfony&style=for-the-badge)
+![Vue.js](https://img.shields.io/badge/Vue.js-3-42b883?logo=vuedotjs&style=for-the-badge)
+![Vuetify](https://img.shields.io/badge/Vuetify-3-1867c0?logo=vuetify&style=for-the-badge)
+![Docker](https://img.shields.io/badge/Docker-25+-2496ED?logo=docker&style=for-the-badge)
+![PHPUnit](https://img.shields.io/badge/Tests-PHPUnit-blue?style=for-the-badge)
+![Vitest](https://img.shields.io/badge/Tests-Vitest-6E9F18?logo=vitest&style=for-the-badge)
 
-Cette solution répond à l’intégralité du défi technique proposé par **MOB**, incluant :
-
-* un **calculateur de trajectoire ferroviaire** (Dijkstra),
-* une **API REST** conforme à l’OpenAPI,
-* une **persistance des trajets** pour les statistiques,
-* une **UI complète** Vue 3 + Vuetify,
-* une **visualisation graphique** des données (Chart.js),
-* un **déploiement Docker** en une seule commande.
 
 ---
 
-## Vue d’ensemble
+#  Table des matières
 
-* **Routage ferroviaire** : calcul du plus court chemin entre stations à partir des fichiers `stations.json` & `distances.json`.
-* **API REST** : sécurisée par Bearer Token (`API_BEARER_TOKEN`), conforme à `infra/openapi.yml`.
-* **Persistance** : chaque trajet créé via `/api/v1/routes` est sauvegardé dans `var/routes-log.json`.
-* **Statistiques** : endpoint bonus avec filtre par période (`none`, `day`, `month`, `year`).
-* **Frontend complet** : formulaire, timeline, statistiques filtrées, graphique.
-* **Docker Compose** : backend & frontend orchestrés, lancement en une commande.
-* **Tests** : PHPUnit côté backend, Vitest côté frontend.
-
----
-
-## Architecture rapide
-
-## Backend (`backend/api`)
-
-* Framework : **Symfony 7**
-* Services clés :
-
-  * `RailNetwork` → chargement du graphe ferroviaire
-  * `RouteCalculator` → implémentation Dijkstra
-  * `AnalyticsService` → agrégation statistique
-  * `RouteStorage` → persistance JSON
-  * `ApiAuthSubscriber` → validation du Bearer Token
-
-* Endpoints :
-
-  * `POST /api/v1/routes`
-  * `GET /api/v1/stats/distances`
-
-* Données réseau montées dans l’image Docker via `backend/data`.
-
-## Frontend (`frontend`)
-
-* Vue 3 + TypeScript + Vuetify 3
-* Fonctionnalités :
-
-  * Formulaire de trajet (stations, code analytique)
-  * Timeline des stations traversées
-  * Bloc statistiques (dates + regroupement)
-  * Graphique en barres (Chart.js)
-
-* Appels fetch sécurisés via `Authorization: Bearer dev-secret-token`.
-
-## Infrastructure (`docker-compose.yml`)
-
-* Services :
-
-  * `backend` (PHP 8.4 + Apache, port 8000)
-  * `frontend` (Vite DevServer ou build + Nginx, port 5173)
-
-* Proxy `/api` → backend via `frontend/nginx.conf`
+- [MOB – Défi Full-Stack : Routage de train \& Statistiques](#mob--défi-full-stack--routage-de-train--statistiques)
+    - [Symfony 7 · Vue 3 · Vuetify 3 · TypeScript · Docker · Dijkstra · Chart.js](#symfony-7--vue-3--vuetify-3--typescript--docker--dijkstra--chartjs)
+- [Table des matières](#table-des-matières)
+- [Présentation](#présentation)
+- [Vue d’ensemble](#vue-densemble)
+    - [Fonctionnalités principales](#fonctionnalités-principales)
+- [Architecture](#architecture)
+- [Backend – Symfony 7](#backend--symfony-7)
+    - [Services principaux](#services-principaux)
+    - [Endpoints](#endpoints)
+- [Frontend – Vue 3 + Vuetify](#frontend--vue-3--vuetify)
+    - [Pages \& composants](#pages--composants)
+    - [UI/UX améliorée](#uiux-améliorée)
+- [Infrastructure Docker](#infrastructure-docker)
+    - [`docker-compose.yml`](#docker-composeyml)
+- [Démarrage rapide (Docker)](#démarrage-rapide-docker)
+- [Exécution locale sans Docker](#exécution-locale-sans-docker)
+    - [Backend](#backend)
+    - [Frontend](#frontend)
+- [Endpoints API](#endpoints-api)
+  - [POST `/api/v1/routes`](#post-apiv1routes)
+  - [GET `/api/v1/stats/distances`](#get-apiv1statsdistances)
+- [Statistiques et visualisation](#statistiques-et-visualisation)
+- [Hypothèses techniques](#hypothèses-techniques)
+- [Roadmap (améliorations futures)](#roadmap-améliorations-futures)
+    - [Frontend](#frontend-1)
+    - [Backend](#backend-1)
+    - [DevOps](#devops)
+- [Conclusion](#conclusion)
 
 ---
 
-## Démarrage rapide (Docker)
+#  Présentation
+
+Ce dépôt contient la solution complète au **défi full-stack de MOB**, mettant en œuvre :
+
+- un backend **Symfony 7 / PHP 8.4**,
+- un frontend moderne **Vue 3 + Vuetify 3 + TypeScript**,
+- un **algorithme Dijkstra** pour le routage ferroviaire,
+- une **API REST sécurisée** conforme à l’OpenAPI,
+- une interface offrant **statistiques + graphiques**,
+- un environnement **Docker** démarrable en une commande.
+
+---
+
+#  Vue d’ensemble
+
+### Fonctionnalités principales
+
+-  Calcul du plus court chemin entre deux stations ferroviaires  
+-  Algorithme Dijkstra implémenté en PHP  
+-  API sécurisée par Bearer Token (`API_BEARER_TOKEN`)  
+-  Persistance des trajets (JSON) pour statistiques  
+-  Statistiques par code analytique (none/day/month/year)  
+-  Graphique dynamique via Chart.js  
+-  Interface ergonomique Vue 3 + Vuetify  
+-  Docker Compose pour orchestrer backend / frontend
+
+---
+
+# Architecture
+
+# Backend – Symfony 7
+
+### Services principaux
+
+| Service | Rôle |
+|--------|------|
+| `RailNetwork` | Charge le graphe ferroviaire depuis JSON |
+| `RouteCalculator` | Implémente Dijkstra |
+| `RouteStorage` | Persistance des trajets dans `var/routes-log.json` |
+| `AnalyticsService` | Calcul des stats groupées |
+| `ApiAuthSubscriber` | Authentification Bearer |
+
+### Endpoints
+
+```url
+POST /api/v1/routes
+GET  /api/v1/stats/distances
+````
+
+---
+
+# Frontend – Vue 3 + Vuetify
+
+### Pages & composants
+
+- `Home.vue` → navigation + présentation
+- `CalculateRoute.vue` → formulaire + timeline + debug réseau
+- `StatsAnalytics.vue` → filtres + calendrier intelligent + graphique
+
+### UI/UX améliorée
+
+- Timeline Vuetify
+- Date-picker basé sur le groupBy (day / month / year)
+- Normalisation automatique des dates pour l’API
+- Chart.js avec couleurs dynamiques par code analytique
+- Layout global (Navbar + Footer)
+- Application responsive
+
+---
+
+# Infrastructure Docker
+
+### `docker-compose.yml`
+
+- Service `backend` (PHP 8.4 + Apache)
+- Service `frontend` (Vite DevServer ou build Nginx)
+- Proxy API → backend via `frontend/nginx.conf`
+
+---
+
+# Démarrage rapide (Docker)
 
 Prérequis : **Docker 25+**
 
 ```bash
 docker compose up --build
-```
+````
 
 | Service  | URL                                                          |
 | -------- | ------------------------------------------------------------ |
@@ -84,13 +139,16 @@ docker compose up --build
 | Backend  | [http://localhost:8000/api/v1](http://localhost:8000/api/v1) |
 
 Token par défaut :
-`Authorization: Bearer dev-secret-token`
+
+```bash
+Authorization: Bearer dev-secret-token
+```
 
 ---
 
-## Exécution locale sans Docker
+# Exécution locale sans Docker
 
-## Backend
+### Backend
 
 ```bash
 cd backend/api
@@ -98,13 +156,7 @@ composer install
 API_BEARER_TOKEN=dev-secret-token php -S 0.0.0.0:8000 -t public
 ```
 
-ou :
-
-```bash
-symfony server:start
-```
-
-## Frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -114,31 +166,9 @@ npm run dev -- --host
 
 ---
 
-## Tests
-
-## Backend (PHPUnit)
-
-```bash
-cd backend/api
-./vendor/bin/phpunit
-```
-
-## Frontend (Vitest)
-
-```bash
-cd frontend
-npm run test
-```
-
----
-
-## Endpoints principaux
+# Endpoints API
 
 ## POST `/api/v1/routes`
-
-Calcule un trajet + distance + chemin + métadonnées.
-
-**Body :**
 
 ```json
 {
@@ -148,17 +178,19 @@ Calcule un trajet + distance + chemin + métadonnées.
 }
 ```
 
+Réponse : distance, chemin, horodatage, debug réseau.
+
+---
+
 ## GET `/api/v1/stats/distances`
 
-Agrégation statistique avec filtres.
-
-**Exemple :**
+Exemple :
 
 ```url
 /api/v1/stats/distances?from=2025-01-01&to=2025-12-31&groupBy=month
 ```
 
-**Réponse :**
+Réponse :
 
 ```json
 {
@@ -171,41 +203,67 @@ Agrégation statistique avec filtres.
 }
 ```
 
-Spéc complète : `infra/openapi.yml`
+Spécification complète : `infra/openapi.yml`
 
 ---
 
-## Hypothèses et choix techniques
+# Statistiques et visualisation
 
-* **Pas de base SQL** : fichier JSON pour persister les trajets → suffisant pour le défi.
-* **Algorithme Dijkstra** : exécution en mémoire à partir du graphe JSON.
-* **Bearer Token simple** : sécurité minimale adaptée au contexte.
-* **Données réseau embarquées dans l’image Docker** pour simplifier le déploiement.
+* Filtre par période (from / to)
+* Regroupement `none | day | month | year`
+* Date-picker intelligent selon période choisie
+* Graphique Chart.js avec :
+
+  * couleurs par code analytique
+  * labels personnalisés
+  * légende dynamique
+* Tableau Vuetify en complément des graphes
 
 ---
 
-## Roadmap & axes d’amélioration
+# Hypothèses techniques
 
-* Couleur unique par code analytique dans le graphique
-* Ajout d’une légende dynamique pour les graphes
-* Augmenter la couverture tests PHPUnit
-* CI GitHub Actions (lint, tests, build, coverage)
-* Passage à JWT + rotation de clés (prod-like)
+* Pas de base SQL → persistance JSON
+* Sécurité Bearer simplifiée (défi technique)
+* Dijkstra calculé en mémoire
+* Données réseau intégrées à l’image Docker
+* Typage strict côté frontend
+* Architecture orientée services pour la testabilité
+
+---
+
+# Roadmap (améliorations futures)
+
+### Frontend
+
+* Theme light/dark switch
+* Animation douce sur les barres du graphique
+* Page “À propos”
+* Responsive plus “app mobile”
+
+### Backend
+
+* JWT + rotation de clés
+* Base PostgreSQL pour historisation enrichie
+* Nettoyage / rotation de `routes-log.json`
+
+### DevOps
+
+* GitHub Actions (build, lint, tests, coverage, scan sécurité)
+* Publication automatique des images Docker
 * HTTPS via Traefik ou Caddy
-* Migrer la persistance vers une vraie base (PostgreSQL)
 
 ---
 
-## Conclusion
+# Conclusion
 
-Cette solution apporte :
+Cette solution délivre :
 
-* une **architecture claire** et structurée,
-* une **API solide**, testée et validée,
-* un **frontend moderne** et ergonomique,
-* une **visualisation statistique complète**,
-* un **routage ferroviaire conforme** via Dijkstra,
-* un **démarrage Docker ultra simple**,
-* un code maintenable, propre et extensible.
+* ✔ une **API robuste**, sécurisée et conforme
+* ✔ un **frontend moderne**, ergonomique et extensible
+* ✔ un **algorithme de routage complet** (Dijkstra)
+* ✔ une **visualisation statistique avancée**
+* ✔ un **environnement Docker clé-en-main**
+* ✔ un code clair, maintenable et structuré
 
-Merci pour ce défi : il m’a donné l’occasion de développer une application complète que je pourrai ajouter à mon répertoire et faire évoluer à l’avenir.
+Merci à MOB pour ce défi stimulant — il m’a permis de créer une application complète, que je pourrai enrichir et intégrer à mon portfolio professionnel.
