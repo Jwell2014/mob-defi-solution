@@ -15,47 +15,47 @@
           <v-form @submit.prevent="fetchStats">
             <v-row dense>
               <v-col cols="12" md="4">
-                <v-select
-                  v-model="statsGroupBy"
-                  :items="[
-                    { title: 'Aucun', value: 'none' },
-                    { title: 'Par jour', value: 'day' },
-                    { title: 'Par mois', value: 'month' },
-                    { title: 'Par année', value: 'year' }
-                  ]"
-                  label="Regrouper par"
-                />
-              </v-col>
+              <v-select
+                v-model="statsGroupBy"
+                :items="[
+                  { title: 'Choisir…', value: null, props: { disabled: true } },
+                  { title: 'Aucun', value: 'none' },
+                  { title: 'Par jour', value: 'day' },
+                  { title: 'Par mois', value: 'month' },
+                  { title: 'Par année', value: 'year' }
+                ]"
+                label="Regrouper par"
+                hide-details="auto"
+              />
+            </v-col>
 
-              <v-col cols="12" md="4">
-                <v-menu
-                  v-model="statsFromMenu"
-                  :close-on-content-click="false"
-                  transition="scale-transition"
-                  location="bottom"
-                >
-                  <template #activator="{ props }">
-                    <v-text-field
-                      v-bind="props"
-                      v-model="statsFrom"
-                      label="Date de début"
-                      placeholder="YYYY-MM-DD"
-                      prepend-inner-icon="mdi-calendar"
-                      readonly
-                      hide-details="auto"
-                    />
-                  </template>
-
-                  <v-date-picker
-                    v-model="statsFromPicker"
-                    title="Date de début"
-                    @update:model-value="val => {
-                      statsFrom = formatDateYMD(val); statsFromMenu = false;
-                    }"
+            <v-col cols="12" md="4">
+              <v-menu
+                v-model="statsFromMenu"
+                :close-on-content-click="false"
+                transition="scale-transition"
+                location="bottom"
+              >
+                <template #activator="{ props }">
+                  <v-text-field
+                    v-bind="props"
+                    :model-value="displayStatsFrom"
+                    label="Date de début"
+                    placeholder="YYYY-MM-DD"
+                    prepend-inner-icon="mdi-calendar"
+                    readonly
+                    hide-details="auto"
                   />
+                </template>
 
-                </v-menu>
-              </v-col>
+                <v-date-picker
+                  :model-value="statsFrom"
+                  @update:model-value="onSelectFrom"
+                  :view-mode="datePickerViewMode"
+                  title="Date de début"
+                />
+              </v-menu>
+            </v-col>
 
               <v-col cols="12" md="4">
                 <v-menu
@@ -67,7 +67,7 @@
                   <template #activator="{ props }">
                     <v-text-field
                       v-bind="props"
-                      v-model="statsTo"
+                      :model-value="displayStatsTo"
                       label="Date de fin"
                       placeholder="YYYY-MM-DD"
                       prepend-inner-icon="mdi-calendar"
@@ -77,23 +77,22 @@
                   </template>
 
                   <v-date-picker
-                    v-model="statsToPicker"
+                    :model-value="statsTo"
+                    @update:model-value="onSelectTo"
+                    :view-mode="datePickerViewMode"
                     title="Date de fin"
-                    @update:model-value="val => { 
-                      statsTo = formatDateYMD(val); statsToMenu = false;
-                    }"
                   />
-
                 </v-menu>
               </v-col>
             </v-row>
+
 
             <div class="mt-4 d-flex justify-start">
               <v-btn
                 type="submit"
                 color="black"
-                outlined
                 :loading="statsLoading"
+                :disabled="!statsGroupBy || statsLoading"
               >
                 Mettre à jour les statistiques
               </v-btn>
@@ -229,16 +228,135 @@ const stats = ref<AnalyticDistanceResponse | null>(null);
 const statsError = ref<ErrorResponse | null>(null);
 const statsLoading = ref(false);
 
-const statsGroupBy = ref<"none" | "day" | "month" | "year">("none");
+type GroupBy = "none" | "day" | "month" | "year";
 
-const statsFrom = ref<string | Date | null>(null); // toujours au format YYYY-MM-DD pour l'API
-const statsTo = ref<string | Date | null>(null);
+const statsGroupBy = ref<GroupBy | null>(null);
+
+const datePickerViewMode = computed(() => {
+  if (statsGroupBy.value === "month") {
+    return "months"; // vue par mois
+  }
+  if (statsGroupBy.value === "year") {
+    return "year"; // vue par années
+  }
+  // 'none' ou 'day' -> vue normale par jours
+  return "month";
+});
+
+// toujours au format YYYY-MM-DD pour l'API
+const statsFrom = ref<string | null>(null); 
+const statsTo = ref<string | null>(null);
 const statsFromMenu = ref(false);
 const statsToMenu = ref(false);
 
-// valeurs internes pour le date-picker
-const statsFromPicker = ref<string | Date | null>(null);
-const statsToPicker = ref<string | Date | null>(null);
+const normalizePickedDate = (
+  raw: string | Date,
+  side: "from" | "to"
+): string => {
+  const date = raw instanceof Date ? raw : new Date(raw);
+
+  if (Number.isNaN(date.getTime())) {
+    // fallback au cas où, tu peux adapter
+    return formatDateYMD(raw) ?? "";
+  }
+
+  const year = date.getFullYear();
+  const monthIndex = date.getMonth(); // 0-11
+  const month = String(monthIndex + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  if (statsGroupBy.value === "month") {
+    if (side === "from") {
+      // début du mois
+      return `${year}-${month}-01`;
+    } else {
+      // fin du mois (0ème jour du mois suivant = dernier jour du mois courant)
+      const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+      return `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+    }
+  }
+
+  if (statsGroupBy.value === "year") {
+    if (side === "from") {
+      return `${year}-01-01`;
+    } else {
+      return `${year}-12-31`;
+    }
+  }
+
+  // mode "jour" ou "none" -> on garde la date telle quelle
+  return `${year}-${month}-${day}`;
+};
+
+const onSelectFrom = (value: string | null) => {
+  if (!value) {
+    statsFrom.value = null;
+    statsFromMenu.value = false;
+    return;
+  }
+
+  statsFrom.value = normalizePickedDate(value, "from");
+  statsFromMenu.value = false;
+};
+
+const onSelectTo = (value: string | null) => {
+  if (!value) {
+    statsTo.value = null;
+    statsToMenu.value = false;
+    return;
+  }
+
+  statsTo.value = normalizePickedDate(value, "to");
+  statsToMenu.value = false;
+};
+
+const displayStatsFrom = computed(() => {
+  if (!statsFrom.value) return "";
+
+  const date = new Date(statsFrom.value);
+  if (Number.isNaN(date.getTime())) {
+    return statsFrom.value;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  if (statsGroupBy.value === "year") {
+    return String(year);
+  }
+
+  if (statsGroupBy.value === "month") {
+    return `${year}-${month}`;
+  }
+
+  return `${year}-${month}-${day}`;
+});
+
+const displayStatsTo = computed(() => {
+  if (!statsTo.value) return "";
+
+  const date = new Date(statsTo.value);
+  if (Number.isNaN(date.getTime())) {
+    return statsTo.value;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  if (statsGroupBy.value === "year") {
+    return String(year);
+  }
+
+  if (statsGroupBy.value === "month") {
+    return `${year}-${month}`;
+  }
+
+  return `${year}-${month}-${day}`;
+});
+
+
 
 const analyticCodeColorMap = new Map<string, string>();
 
@@ -325,6 +443,12 @@ const fetchStats = async () => {
   statsError.value = null;
 
   try {
+    if (!statsGroupBy.value) {
+      // sécurité : pas de groupBy -> on ne fait rien
+      statsLoading.value = false;
+      return;
+    }
+
     const params = new URLSearchParams();
     params.set("groupBy", statsGroupBy.value);
 
