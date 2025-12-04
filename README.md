@@ -27,6 +27,7 @@
     - [UI/UX améliorée](#uiux-améliorée)
 - [Infrastructure Docker](#infrastructure-docker)
     - [`docker-compose.yml`](#docker-composeyml)
+    - [Configuration Apache du backend](#configuration-apache-du-backend)
 - [Démarrage rapide (Docker)](#démarrage-rapide-docker)
 - [Exécution locale sans Docker](#exécution-locale-sans-docker)
     - [Backend](#backend)
@@ -129,6 +130,24 @@ GET  /api/v1/stats/distances
 * Service `backend` (PHP 8.4 + Apache)
 * Service `frontend` (Vite DevServer ou build Nginx)
 * Proxy API → backend via `frontend/nginx.conf`
+
+
+### Configuration Apache du backend
+
+Le conteneur backend utilise l'image `php:8.4-apache`.  
+Le Dockerfile configure un VirtualHost personnalisé :
+
+- `DocumentRoot /var/www/html/public`  
+  → Symfony doit être servi depuis le dossier `public/`.
+
+- `AllowOverride All`  
+  → permet à Symfony d'utiliser son `.htaccess` pour les réécritures internes.
+
+- `SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1`  
+  → garantit que le header `Authorization: Bearer …` est bien transmis à PHP  
+     (indispensable pour l’authentification de l’API).
+
+Cette configuration assure un fonctionnement correct de l’API Symfony dans l’environnement Docker (routing, sécurité et compatibilité Bearer token).
 
 ---
 
