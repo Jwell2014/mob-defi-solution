@@ -8,7 +8,6 @@
 ![PHPUnit](https://img.shields.io/badge/Tests-PHPUnit-blue?style=for-the-badge)
 ![Vitest](https://img.shields.io/badge/Tests-Vitest-6E9F18?logo=vitest&style=for-the-badge)
 
-
 ---
 
 #  Table des matières
@@ -32,6 +31,9 @@
 - [Exécution locale sans Docker](#exécution-locale-sans-docker)
     - [Backend](#backend)
     - [Frontend](#frontend)
+- [Tests](#tests)
+    - [Backend – PHPUnit](#backend--phpunit)
+    - [Frontend – Vitest](#frontend--vitest)
 - [Endpoints API](#endpoints-api)
   - [POST `/api/v1/routes`](#post-apiv1routes)
   - [GET `/api/v1/stats/distances`](#get-apiv1statsdistances)
@@ -55,6 +57,7 @@ Ce dépôt contient la solution complète au **défi full-stack de MOB**, mettan
 - une **API REST sécurisée** conforme à l’OpenAPI,
 - une interface offrant **statistiques + graphiques**,
 - un environnement **Docker** démarrable en une commande.
+- une couverture **tests backend (PHPUnit) & frontend (Vitest)** pour garantir la fiabilité du projet.
 
 ---
 
@@ -70,6 +73,10 @@ Ce dépôt contient la solution complète au **défi full-stack de MOB**, mettan
 -  Graphique dynamique via Chart.js  
 -  Interface ergonomique Vue 3 + Vuetify  
 -  Docker Compose pour orchestrer backend / frontend
+-  **Tests automatisés :**
+   - backend avec **PHPUnit**
+   - frontend avec **Vitest**
+   - couverture des cas d’erreurs, scénarios API et logique UI
 
 ---
 
@@ -100,18 +107,18 @@ GET  /api/v1/stats/distances
 
 ### Pages & composants
 
-- `Home.vue` → navigation + présentation
-- `CalculateRoute.vue` → formulaire + timeline + debug réseau
-- `StatsAnalytics.vue` → filtres + calendrier intelligent + graphique
+* `Home.vue` → navigation + présentation
+* `CalculateRoute.vue` → formulaire + timeline + debug réseau
+* `StatsAnalytics.vue` → filtres + calendrier intelligent + graphique
 
 ### UI/UX améliorée
 
-- Timeline Vuetify
-- Date-picker basé sur le groupBy (day / month / year)
-- Normalisation automatique des dates pour l’API
-- Chart.js avec couleurs dynamiques par code analytique
-- Layout global (Navbar + Footer)
-- Application responsive
+* Timeline Vuetify
+* Date-picker basé sur le groupBy (day / month / year)
+* Normalisation automatique des dates pour l’API
+* Chart.js avec couleurs dynamiques par code analytique + légende
+* Layout global (Navbar + Footer)
+* Application responsive
 
 ---
 
@@ -119,9 +126,9 @@ GET  /api/v1/stats/distances
 
 ### `docker-compose.yml`
 
-- Service `backend` (PHP 8.4 + Apache)
-- Service `frontend` (Vite DevServer ou build Nginx)
-- Proxy API → backend via `frontend/nginx.conf`
+* Service `backend` (PHP 8.4 + Apache)
+* Service `frontend` (Vite DevServer ou build Nginx)
+* Proxy API → backend via `frontend/nginx.conf`
 
 ---
 
@@ -131,7 +138,7 @@ Prérequis : **Docker 25+**
 
 ```bash
 docker compose up --build
-````
+```
 
 | Service  | URL                                                          |
 | -------- | ------------------------------------------------------------ |
@@ -163,6 +170,65 @@ cd frontend
 npm install
 npm run dev -- --host
 ```
+
+---
+
+# Tests
+
+### Backend – PHPUnit
+
+Les tests se trouvent dans `backend/api/tests`.
+
+**Lancer les tests :**
+
+```bash
+cd backend/api
+composer install   # si nécessaire
+./vendor/bin/phpunit
+```
+
+**Tests principaux :**
+
+* `App\Tests\Service\RouteCalculatorTest`
+
+  * Vérifie que le calculateur retourne bien une distance > 0 et un chemin non vide entre deux stations valides (`MX` → `ZW`), avec un path qui commence par `MX` et se termine par `ZW`.
+  * Vérifie qu’une station inconnue déclenche une `UnknownStationException`.
+  * Vérifie qu’une situation sans route possible déclenche une `NoRouteFoundException`.
+
+* `App\Tests\Controller\RouteControllerTest`
+
+  * `POST /api/v1/routes` avec un payload valide → HTTP **201** + objet Route complet (distance, path, métadonnées).
+  * Body JSON incomplet / invalide → HTTP **400** avec code `INVALID_REQUEST` + détails.
+  * Station inconnue → HTTP **422** avec code `UNKNOWN_STATION`.
+  * Aucune route possible → HTTP **422** avec code `NO_ROUTE`.
+
+### Frontend – Vitest
+
+Les tests se trouvent dans `frontend/tests`.
+
+**Lancer les tests :**
+
+```bash
+cd frontend
+npm install   # si nécessaire
+npm run test
+```
+
+**Tests principaux :**
+
+* `App.vue`
+
+  * Vérifie l’affichage du **formulaire de calcul de trajet** :
+
+    * "Station de départ"
+    * "Station d’arrivée"
+    * "Code analytique"
+    * bouton "Calculer le trajet".
+  * Mock de `fetch` pour simuler un backend qui renvoie une route valide :
+
+    * `onSubmit()` appelle bien l’API,
+    * la réponse est rendue dans le composant (stations + distance),
+    * le flux principal (remplissage du formulaire → appel API → affichage du résultat) est couvert.
 
 ---
 
